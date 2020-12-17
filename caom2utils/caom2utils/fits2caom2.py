@@ -2997,6 +2997,10 @@ class FitsParser(GenericParser):
                 else:
                     for i in inputs.split():
                         prov.inputs.add(PlaneURI(str(i)))
+            else:
+                if current is not None and len(current.inputs) > 0:
+                    # preserve the original value
+                    prov.inputs.update(current.inputs)
         self.logger.debug('End Provenance augmentation.')
         return prov
 
