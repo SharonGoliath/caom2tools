@@ -95,11 +95,10 @@ class StorageClientWrapper:
     Wrap the metrics collection with StorageInventoryClient.
     """
 
-    def __init__(self, subject, resource_id='ivo://cadc.nrc.ca/uvic/minoc', metrics=None):
+    def __init__(self, subject, resource_id, metrics=None):
         """
         :param subject: net.Subject instance for authentication and authorization
-        :param resource_id: str identifies the StorageInventoryClient endpoint. Defaults to the installation closest to
-            most of the current invocations.
+        :param resource_id: str identifies the StorageInventoryClient endpoint.
         :param metrics: caom2pipe.manaage_composable.Metrics instance. If set, will track execution times, by action,
             from the beginning of the method invocation to the end of the method invocation, success or failure.
             Defaults to None, because fits2caom2 is a stand-alone application.
@@ -109,12 +108,12 @@ class StorageClientWrapper:
         self._logger = logging.getLogger(self.__class__.__name__)
 
     def _add_fail_metric(self, action, name):
-        """Single location for the check for a self._metrics member in the failure case."""
+        """Inform callback of failure."""
         if self._metrics is not None:
             self._metrics.observe_failure(action, 'si', name)
 
     def _add_metric(self, action, name, start, value):
-        """Single location for the check for a self._metrics member in the success case."""
+        """Inform callback of execution duration."""
         if self._metrics is not None:
             self._metrics.observe(start, StorageClientWrapper._current(), value, action, 'si', name)
 
@@ -178,8 +177,6 @@ class StorageClientWrapper:
         self._logger.debug(f'Begin info for {uri}')
         try:
             result = self._cadc_client.cadcinfo(uri)
-            # make the result look like the other possible ways to
-            # obtain metadata
             result.md5sum = result.md5sum.replace('md5:', '')
         except exceptions.NotFoundException:
             self._logger.info(f'cadcinfo:: {uri} not found')

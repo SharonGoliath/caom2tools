@@ -130,7 +130,7 @@ def test_storage_inventory_client(cadc_client_mock):
     cadc_client_mock.return_value.cadcput = Mock(autospec=True)
     cadc_client_mock.return_value.cadcremove = Mock(autospec=True)
 
-    test_wrapper = data_util.StorageClientWrapper(subject=test_subject)
+    test_wrapper = data_util.StorageClientWrapper(subject=test_subject, resource_id='ivo://cadc.nrc.ca/uvic/minoc')
     assert test_wrapper is not None, 'ctor failure'
 
     # info
@@ -190,7 +190,9 @@ def test_si_tracking(client_mock):
     client_mock.return_value.cadcget.side_effect = _get
     client_mock.return_value.cadcremove.side_effect = Mock()
 
-    test_wrapper = data_util.StorageClientWrapper(subject=test_subject, metrics=test_metrics)
+    test_wrapper = data_util.StorageClientWrapper(
+        subject=test_subject, resource_id='ivo://cadc.nrc.ca/uvic/minoc', metrics=test_metrics
+    )
     assert test_wrapper is not None, 'ctor failure'
 
     # test metrics failure
