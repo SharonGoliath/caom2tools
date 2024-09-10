@@ -322,6 +322,7 @@ def get_local_file_info(fqn):
         size=s.st_size,
         md5sum=hash_md5.hexdigest(),
         file_type=get_file_type(fqn),
+        lastmod=datetime.fromtimestamp(s.st_mtime),
     )
     return meta
 
