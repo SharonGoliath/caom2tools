@@ -66,6 +66,9 @@
 #
 # ***********************************************************************
 #
+
+import aiohttp
+
 import argparse
 import importlib.util
 import importlib.machinery
@@ -105,7 +108,7 @@ APP_NAME = 'caom2repo'
 class CAOM2RepoClient(object):
     """Class to do CRUD + visitor actions on a CAOM2 collection repo."""
 
-    def __init__(self, subject, logLevel=logging.INFO,
+    async def __init__(self, subject, logLevel=logging.INFO,
                  resource_id=DEFAULT_RESOURCE_ID, host=None, agent=None):
         """
         Instance of a CAOM2RepoClient
@@ -134,18 +137,16 @@ class CAOM2RepoClient(object):
                                              agent, retry=True, host=self.host,
                                              idempotent_posts=True)
         try:
-            self._repo_client.caps.get_access_url(
-                CURRENT_CAOM2REPO_OBS_CAPABILITY_ID)
+            await self._repo_client.caps.get_access_url(CURRENT_CAOM2REPO_OBS_CAPABILITY_ID)
             self.capability_id = CURRENT_CAOM2REPO_OBS_CAPABILITY_ID
             self.namespace = obs_reader_writer.CAOM24_NAMESPACE
         except KeyError:
-            self._repo_client.caps.get_access_url(
-                PREVIOUS_CAOM2REPO_OBS_CAPABILITY_ID)
+            await self._repo_client.caps.get_access_url(PREVIOUS_CAOM2REPO_OBS_CAPABILITY_ID)
             self.capability_id = PREVIOUS_CAOM2REPO_OBS_CAPABILITY_ID
             self.namespace = obs_reader_writer.CAOM23_NAMESPACE
 
     # shortcuts for the CRUD operations
-    def create(self, observation):
+    async def create(self, observation):
         """
         Creates an observation in the repo.
         :param observation: Observation to create
@@ -153,9 +154,9 @@ class CAOM2RepoClient(object):
         :raises: cadcutils.exceptions.AlreadyExistsException and possibly other
         cadcutils.exceptions
         """
-        self.put_observation(observation)
+        await self.put_observation(observation)
 
-    def read(self, collection, observation_id):
+    async def read(self, collection, observation_id):
         """
         Read an observation from the repo
         :param collection: Name of the collection
@@ -164,9 +165,10 @@ class CAOM2RepoClient(object):
         :raises: cadcutils.exceptions.NotFoundException and possibly
         other cadcutils.exceptions
         """
-        return self.get_observation(collection, observation_id)
+        result = await self.get_observation(collection, observation_id)
+        return result
 
-    def update(self, observation):
+    async def update(self, observation):
         """
         Update an observation in the repo
         :param observation: Observation to update
@@ -174,9 +176,9 @@ class CAOM2RepoClient(object):
         :raises: cadcutils.exceptions.NotFoundException and possibly
         other cadcutils.exceptions
         """
-        self.post_observation(observation)
+        await self.post_observation(observation)
 
-    def delete(self, collection, observation_id):
+    async def delete(self, collection, observation_id):
         """
         Delete an observation from the repo
         :param collection: Name of the collection
@@ -184,7 +186,7 @@ class CAOM2RepoClient(object):
         :raises: cadcutils.exceptions.NotFoundException and possibly
         other cadcutils.exceptions
         """
-        self.delete_observation(collection, observation_id)
+        await self.delete_observation(collection, observation_id)
 
     def visit(self, plugin, collection, start=None, end=None, obs_file=None,
               nthreads=None, halt_on_error=False):
@@ -461,7 +463,7 @@ class CAOM2RepoClient(object):
             raise Exception(
                 'Cannot find update method in plugin class ' + filepath)
 
-    def get_observation(self, collection, observation_id):
+    async def get_observation(self, collection, observation_id):
         """
         Get an observation from the CAOM2 repo
         :param collection: name of the collection
@@ -473,7 +475,7 @@ class CAOM2RepoClient(object):
         assert observation_id is not None
         path = '/{}/{}'.format(collection, observation_id)
         self.logger.debug('GET {}'.format(path))
-        response = self._repo_client.get((self.capability_id, path))
+        response = await self._repo_client.get((self.capability_id, path))
 
         obs_reader = ObservationReader()
         content = response.content
@@ -483,7 +485,7 @@ class CAOM2RepoClient(object):
             raise Exception('Got empty response for resource: {}'.format(path))
         return obs_reader.read(BytesIO(content))
 
-    def post_observation(self, observation, orig_checksum=None):
+    async def post_observation(self, observation, orig_checksum=None):
         """
         Updates an observation in the CAOM2 repo
         :param observation: observation to update
@@ -505,12 +507,11 @@ class CAOM2RepoClient(object):
         headers = {'Content-Type': 'application/xml'}
         if orig_checksum:
             headers['If-Match'] = orig_checksum
-        self._repo_client.post(
-            (self.capability_id, path), headers=headers, data=obs_xml)
+        await self._repo_client.post((self.capability_id, path), headers=headers, data=obs_xml)
 
         self.logger.debug('Successfully updated Observation')
 
-    def put_observation(self, observation):
+    async def put_observation(self, observation):
         """
         Add an observation to the CAOM2 repo
         :param observation: observation to add to the CAOM2 repo
@@ -527,12 +528,11 @@ class CAOM2RepoClient(object):
             observation, ibuffer)
         obs_xml = ibuffer.getvalue()
         headers = {'Content-Type': 'application/xml'}
-        self._repo_client.put(
-            (self.capability_id, path), headers=headers, data=obs_xml)
+        await self._repo_client.put((self.capability_id, path), headers=headers, data=obs_xml)
 
         self.logger.debug('Successfully put Observation')
 
-    def delete_observation(self, collection, observation_id):
+    async def delete_observation(self, collection, observation_id):
         """
         Delete an observation from the CAOM2 repo
         :param collection: Name of the collection
@@ -541,7 +541,7 @@ class CAOM2RepoClient(object):
         assert observation_id is not None
         path = '/{}/{}'.format(collection, observation_id)
         self.logger.debug('DELETE {}'.format(path))
-        self._repo_client.delete((self.capability_id, path))
+        await self._repo_client.delete((self.capability_id, path))
 
         self.logger.info('Successfully deleted Observation')
 
