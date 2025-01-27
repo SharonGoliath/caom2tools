@@ -108,7 +108,7 @@ APP_NAME = 'caom2repo'
 class CAOM2RepoClient(object):
     """Class to do CRUD + visitor actions on a CAOM2 collection repo."""
 
-    async def __init__(self, subject, logLevel=logging.INFO,
+    def __init__(self, subject, logLevel=logging.INFO,
                  resource_id=DEFAULT_RESOURCE_ID, host=None, agent=None):
         """
         Instance of a CAOM2RepoClient
@@ -133,9 +133,16 @@ class CAOM2RepoClient(object):
 
         self.agent = agent
 
-        self._repo_client = net.BaseWsClient(resource_id, subject,
-                                             agent, retry=True, host=self.host,
-                                             idempotent_posts=True)
+    async def _init(self):
+        self._repo_client = net.BaseWsClient(
+            self.resource_id,
+            self._subject,
+            self.agent,
+            retry=True,
+            host=self.host,
+            idempotent_posts=True,
+        )
+        await self._repo_client._init()
         try:
             await self._repo_client.caps.get_access_url(CURRENT_CAOM2REPO_OBS_CAPABILITY_ID)
             self.capability_id = CURRENT_CAOM2REPO_OBS_CAPABILITY_ID
