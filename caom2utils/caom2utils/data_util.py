@@ -108,6 +108,9 @@ class StorageClientWrapper:
         self._metrics = metrics
         self._logger = logging.getLogger(self.__class__.__name__)
 
+    async def _init(self, subject, resource_id):
+        await self._cadc_client._init(resource_id, subject, insecure=False)
+
     def _add_fail_metric(self, action, name):
         """Single location for the check for a self._metrics member in the failure case."""
         if self._metrics is not None:
@@ -118,7 +121,7 @@ class StorageClientWrapper:
         if self._metrics is not None:
             self._metrics.observe(start, StorageClientWrapper._current(), value, action, 'si', name)
 
-    def get(self, working_directory, uri):
+    async def get(self, working_directory, uri):
         """
         Retrieve data.
         :param working_directory: str where the file will be retrieved to. Assumes the same machine as this function
@@ -130,7 +133,7 @@ class StorageClientWrapper:
         try:
             archive, f_name = self._decompose(uri)
             fqn = path.join(working_directory, f_name)
-            self._cadc_client.cadcget(uri, dest=fqn)
+            await self._cadc_client.cadcget(uri, dest=fqn)
         except Exception as e:
             self._add_fail_metric('get', uri)
             self._logger.debug(traceback.format_exc())
@@ -138,7 +141,7 @@ class StorageClientWrapper:
         self._add_metric('get', uri, start, stat(fqn).st_size)
         self._logger.debug('End get')
 
-    def get_head(self, uri):
+    async def get_head(self, uri):
         """
         Retrieve FITS file header data.
         :param uri: str that is an Artifact URI, representing the file for which to retrieve headers
@@ -149,7 +152,7 @@ class StorageClientWrapper:
         try:
             b = BytesIO()
             b.name = uri
-            self._cadc_client.cadcget(uri, b, fhead=True)
+            await self._cadc_client.cadcget(uri, b, fhead=True)
             fits_header = b.getvalue().decode('ascii')
             b.close()
             self._add_metric('get_head', uri, start, len(fits_header))
@@ -162,7 +165,7 @@ class StorageClientWrapper:
             self._logger.error(e)
             raise exceptions.UnexpectedException(f'Did not retrieve {uri} header because {e}')
 
-    def info(self, uri):
+    async def info(self, uri):
         """
         Retrieve the descriptive metadata associated with a file.
         :param uri: str that is an Artifact URI, representing the file for which to retrieve metadata
@@ -170,7 +173,7 @@ class StorageClientWrapper:
         """
         self._logger.debug(f'Begin info for {uri}')
         try:
-            result = self._cadc_client.cadcinfo(uri)
+            result = await self._cadc_client.cadcinfo(uri)
             # make the result look like the other possible ways to obtain metadata
             result.md5sum = result.md5sum.replace('md5:', '')
         except exceptions.NotFoundException:
@@ -179,7 +182,7 @@ class StorageClientWrapper:
         self._logger.debug('End info')
         return result
 
-    def put(self, working_directory, uri):
+    async def put(self, working_directory, uri):
         """
         Store a file at CADC.
         :param working_directory: str fully-qualified name of where to find the file on the local machine
@@ -195,14 +198,14 @@ class StorageClientWrapper:
             local_meta = get_local_file_info(f_name)
             encoding = get_file_encoding(f_name)
             replace = True
-            cadc_meta = self.info(uri)
+            cadc_meta = await self.info(uri)
             if cadc_meta is None:
                 replace = False
             self._logger.debug(
                 f'uri {uri} src {fqn} replace {replace} file_type {local_meta.file_type} encoding {encoding} '
                 f'md5_checksum {local_meta.md5sum}'
             )
-            self._cadc_client.cadcput(
+            await self._cadc_client.cadcput(
                 uri,
                 src=f_name,
                 replace=replace,
@@ -221,7 +224,7 @@ class StorageClientWrapper:
         self._add_metric('put', uri, start, local_meta.size)
         self._logger.debug('End put')
 
-    def remove(self, uri):
+    async def remove(self, uri):
         """
         Delete a file from CADC storage.
         :param uri: str that is an Artifact URI, representing the file to be removed from CADC.
@@ -229,7 +232,7 @@ class StorageClientWrapper:
         self._logger.debug(f'Begin remove for {uri}')
         start = StorageClientWrapper._current()
         try:
-            self._cadc_client.cadcremove(uri)
+            await self._cadc_client.cadcremove(uri)
         except Exception as e:
             self._add_fail_metric('remove', uri)
             self._logger.debug(traceback.format_exc())
