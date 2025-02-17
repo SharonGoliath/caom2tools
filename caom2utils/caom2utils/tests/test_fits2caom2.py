@@ -2,7 +2,7 @@
 # ******************  CANADIAN ASTRONOMY DATA CENTRE  *******************
 # *************  CENTRE CANADIEN DE DONNÉES ASTRONOMIQUES  **************
 #
-#  (c) 2022.                            (c) 2022.
+#  (c) 2025.                            (c) 2025.
 #  Government of Canada                 Gouvernement du Canada
 #  National Research Council            Conseil national de recherches
 #  Ottawa, Canada, K1A 0R6              Ottawa, Canada, K1A 0R6
@@ -1265,22 +1265,33 @@ def test_augment_artifact_bounds_range_from_blueprint():
     test_blueprint = ObsBlueprint(
         energy_axis=1, time_axis=2, polarization_axis=3, position_axes=(4, 5), custom_axis=6
     )
+    test_blueprint.set('Chunk.custom.axis.axis.ctype', 'RM')
+    test_blueprint.set('Chunk.custom.axis.axis.cunit', 'm / s ** 2')
     test_blueprint.set('Chunk.custom.axis.range.start.pix', '145.0')
     test_blueprint.set('Chunk.custom.axis.range.start.val', '-60000.0')
     test_blueprint.set('Chunk.custom.axis.range.end.pix', '-824.46002')
     test_blueprint.set('Chunk.custom.axis.range.end.val', '1')
+    test_blueprint.set('Chunk.energy.axis.axis.ctype', 'WAVE')
+    test_blueprint.set('Chunk.energy.axis.axis.cunit', 'm')
     test_blueprint.set('Chunk.energy.axis.range.start.pix', '145.0')
     test_blueprint.set('Chunk.energy.axis.range.start.val', '-60000.0')
     test_blueprint.set('Chunk.energy.axis.range.end.pix', '-824.46002')
     test_blueprint.set('Chunk.energy.axis.range.end.val', '1')
+    test_blueprint.set('Chunk.time.axis.axis.ctype', 'TIME')
+    test_blueprint.set('Chunk.time.axis.axis.cunit', 'd')
     test_blueprint.set('Chunk.time.axis.range.start.pix', '145.0')
     test_blueprint.set('Chunk.time.axis.range.start.val', '-60000.0')
     test_blueprint.set('Chunk.time.axis.range.end.pix', '-824.46002')
     test_blueprint.set('Chunk.time.axis.range.end.val', '1')
+    test_blueprint.set('Chunk.polarization.axis.axis.ctype', 'STOKES')
     test_blueprint.set('Chunk.polarization.axis.range.start.pix', '145.0')
     test_blueprint.set('Chunk.polarization.axis.range.start.val', '-60000.0')
     test_blueprint.set('Chunk.polarization.axis.range.end.pix', '-824.46002')
     test_blueprint.set('Chunk.polarization.axis.range.end.val', '1')
+    test_blueprint.set('Chunk.position.axis.axis1.ctype', 'RA')
+    test_blueprint.set('Chunk.position.axis.axis1.cunit', 'deg')
+    test_blueprint.set('Chunk.position.axis.axis2.ctype', 'DEC')
+    test_blueprint.set('Chunk.position.axis.axis2.cunit', 'deg')
     test_blueprint.set('Chunk.position.axis.range.start.coord1.pix', '145.0')
     test_blueprint.set('Chunk.position.axis.range.start.coord1.val', '-60000.0')
     test_blueprint.set('Chunk.position.axis.range.end.coord1.pix', '-824.46002')
@@ -1399,6 +1410,23 @@ def test_generic_parser1():
     assert test_parser._blueprint._plan[test_key] == (['RELEASE', 'REL_DATE'], None), 'default value changed'
     test_parser.blueprint = test_blueprint
     assert test_parser._blueprint._plan[test_key] == test_value, 'original value over-ridden'
+
+
+def test_generic_parser_imported_module_error_handling():
+    # this test exercises the error handling code for executing functions defined by blueprints
+    test_key = 'Plane.metaRelease'
+    test_key_2 = 'Plane.dataRelease'
+    test_value = '2013-10-10'
+    test_blueprint = ObsBlueprint()
+    test_blueprint.set(test_key, '2013-10-10')
+    # pick __sizeof__ as an attribute that will fail to execute for any module
+    test_blueprint.set(test_key_2, '__sizeof__()')
+    test_parser = BlueprintParser()
+    assert test_parser._blueprint._plan[test_key] == (['RELEASE', 'REL_DATE'], None), 'default value changed'
+    test_parser.blueprint = test_blueprint
+    assert test_parser._blueprint._plan[test_key] == test_value, 'original value over-ridden'
+    test_result = test_parser._execute_external('__sizeof__(uri)', test_key_2, 0)
+    assert test_result == '', 'wrong result'
 
 
 def test_get_external_headers():
